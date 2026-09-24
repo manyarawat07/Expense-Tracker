@@ -1,3 +1,28 @@
+// --- AUTHENTICATION CHECK ---
+const currentUser = JSON.parse(localStorage.getItem('expense_currentUser'));
+if (!currentUser) {
+    window.location.href = 'login.html';
+}
+
+// Update header with user name and handle logout
+document.addEventListener('DOMContentLoaded', () => {
+    if (currentUser) {
+        const headerH1 = document.querySelector('header h1');
+        if (headerH1) {
+            headerH1.innerHTML = `<i class="fas fa-wallet"></i> ${currentUser.name}'s Expenses`;
+        }
+    }
+    
+    // Logout logic
+    const logoutBtn = document.getElementById('logout-btn');
+    if (logoutBtn) {
+        logoutBtn.addEventListener('click', () => {
+            localStorage.removeItem('expense_currentUser');
+            window.location.href = 'login.html';
+        });
+    }
+});
+
 // DOM elements will be cached after DOMContentLoaded to ensure reliability
 let balance, totalIncome, totalExpense, list, form, formTitle, editId, amountInput, dateInput, notesInput;
 let categoryBtns, toggleNotesBtn, optionalFields, addExpenseBtn, addIncomeBtn;
@@ -38,8 +63,7 @@ function initializeEventListeners() {
         });
     }
 
-    // Toggle optional fields
-    if (toggleNotesBtn && optionalFields) {
+    if (toggleNotesBtn) {
         toggleNotesBtn.addEventListener('click', () => {
             optionalFields.classList.toggle('collapsed');
             if(optionalFields.classList.contains('collapsed')) {
@@ -50,45 +74,27 @@ function initializeEventListeners() {
         });
     }
 
-    // Form submit for expense
     if (form) {
         form.addEventListener('submit', (e) => addTransaction(e, 'expense'));
     }
-
-    // Income button
+    
     if (addIncomeBtn) {
         addIncomeBtn.addEventListener('click', (e) => addTransaction(e, 'income'));
     }
 
-    // Budget
-    if (setBudgetBtn) setBudgetBtn.addEventListener('click', setBudget);
+    if (setBudgetBtn) {
+        setBudgetBtn.addEventListener('click', setBudget);
+    }
 
-    // Filters
     if (searchInput) searchInput.addEventListener('input', filterTransactions);
     if (filterType) filterType.addEventListener('change', filterTransactions);
     if (filterCategory) filterCategory.addEventListener('change', filterTransactions);
     if (filterDateFrom) filterDateFrom.addEventListener('change', filterTransactions);
     if (filterDateTo) filterDateTo.addEventListener('change', filterTransactions);
 
-    // AI
     if (aiParseBtn) aiParseBtn.addEventListener('click', handleAIParse);
     if (aiCancelBtn) aiCancelBtn.addEventListener('click', handleAICancel);
     if (aiConfirmBtn) aiConfirmBtn.addEventListener('click', handleAIConfirm);
-
-    // Event delegation for edit/delete on transaction list
-    if (list) {
-        list.addEventListener('click', (e) => {
-            const editBtn = e.target.closest('.edit-btn');
-            const deleteBtn = e.target.closest('.delete-btn');
-            if (editBtn) {
-                const id = editBtn.getAttribute('data-id');
-                if (id) editTransaction(id);
-            } else if (deleteBtn) {
-                const id = deleteBtn.getAttribute('data-id');
-                if (id) removeTransaction(id);
-            }
-        });
-    }
 }
 
 // Category Selection Logic
@@ -151,113 +157,49 @@ function addTransaction(e, type = 'expense') {
     if (amountInput) amountInput.focus();
 }
 
-
 // Add transaction to DOM list
 function addTransactionDOM(transaction) {
     if (!list) return;
 
     const sign = transaction.type === 'income' ? '+' : '-';
     const item = document.createElement('li');
-    item.classList.add(transaction.type);
 
+    item.classList.add(transaction.type);
+    
     // Safety check for values
     const safeCat = transaction.category || 'Other';
-    const safeAmount = isNaN(transaction.amount) ? 0 : Number(transaction.amount);
+    const safeAmount = isNaN(transaction.amount) ? 0 : transaction.amount;
     const safeDate = transaction.date || '';
     const safeNotes = transaction.notes || '';
 
-    // Build DOM nodes instead of inline onclick handlers
-    const info = document.createElement('div');
-    info.className = 'transaction-info';
-
-    const header = document.createElement('div');
-    header.className = 'transaction-header';
-
-    const catSpan = document.createElement('span');
-    catSpan.className = 'transaction-category';
-    catSpan.innerText = safeCat;
-
-    const typeSpan = document.createElement('span');
-    typeSpan.className = 'transaction-type';
-    typeSpan.style.marginLeft = '8px';
-    typeSpan.style.fontSize = '0.85rem';
-    typeSpan.style.color = '#666';
-    typeSpan.innerText = transaction.type === 'income' ? '(Income)' : '(Expense)';
-
-    const amtSpan = document.createElement('span');
-    amtSpan.className = `transaction-amount ${transaction.type === 'income' ? 'money plus' : 'money minus'}`;
-    amtSpan.innerText = `${sign}${formatCurrency(safeAmount)}`;
-
-    header.appendChild(catSpan);
-    header.appendChild(typeSpan);
-    header.appendChild(amtSpan);
-
-    const details = document.createElement('div');
-    details.className = 'transaction-details';
-
-    const dateSpan = document.createElement('span');
-    dateSpan.className = 'transaction-date';
-    dateSpan.innerText = safeDate;
-
-    const notesSpan = document.createElement('span');
-    notesSpan.className = 'transaction-notes';
-    notesSpan.innerText = safeNotes;
-
-    details.appendChild(dateSpan);
-    details.appendChild(notesSpan);
-
-    info.appendChild(header);
-    info.appendChild(details);
-
-    const actions = document.createElement('div');
-    actions.className = 'transaction-actions';
-
-    const editBtn = document.createElement('button');
-    editBtn.className = 'action-btn edit-btn';
-    editBtn.setAttribute('data-id', transaction.id);
-    editBtn.innerHTML = 'Edit';
-
-    const deleteBtn = document.createElement('button');
-    deleteBtn.className = 'action-btn delete-btn';
-    deleteBtn.setAttribute('data-id', transaction.id);
-    deleteBtn.innerHTML = 'Delete';
-
-    actions.appendChild(editBtn);
-    actions.appendChild(deleteBtn);
-
-    item.appendChild(info);
-    item.appendChild(actions);
+    item.innerHTML = `
+        <div class="transaction-info">
+            <div class="transaction-header">
+                <span class="transaction-category">${safeCat}</span>
+                <span class="transaction-amount ${transaction.type === 'income' ? 'money plus' : 'money minus'}">
+                    ${sign}${formatCurrency(safeAmount)}
+                </span>
+            </div>
+            <div class="transaction-details">
+                <span class="transaction-date">${safeDate}</span>
+                <span class="transaction-notes">${safeNotes}</span>
+            </div>
+        </div>
+        <div class="transaction-actions">
+            <button class="action-btn edit-btn" onclick="editTransaction('${transaction.id}')">
+                <i class="fas fa-edit"></i>
+            </button>
+            <button class="action-btn delete-btn" onclick="removeTransaction('${transaction.id}')">
+                <i class="fas fa-trash"></i>
+            </button>
+        </div>
+    `;
 
     list.appendChild(item);
 }
 
-// Populate category filter based on transactions and default categories
-function populateCategoryFilter() {
-    if (!filterCategory) return;
-
-    const defaultCats = ['Food','Travel','Shopping','Education','Health','Bills','Other','Salary'];
-    const cats = new Set(defaultCats);
-    transactions.forEach(t => {
-        if (t.category) cats.add(t.category);
-    });
-
-    // Clear existing options and add 'all'
-    filterCategory.innerHTML = '';
-    const allOpt = document.createElement('option');
-    allOpt.value = 'all';
-    allOpt.innerText = 'All Categories';
-    filterCategory.appendChild(allOpt);
-
-    Array.from(cats).forEach(c => {
-        const opt = document.createElement('option');
-        opt.value = c;
-        opt.innerText = c;
-        filterCategory.appendChild(opt);
-    });
-}
-
 // Edit transaction (globally accessible)
-function editTransaction(id) {
+window.editTransaction = function(id) {
     const transaction = transactions.find(t => t.id === id);
     if (!transaction) return;
 
@@ -291,7 +233,7 @@ function editTransaction(id) {
 }
 
 // Remove transaction (globally accessible)
-function removeTransaction(id) {
+window.removeTransaction = function(id) {
     if(confirm('Are you sure you want to delete this transaction?')) {
         transactions = transactions.filter(transaction => transaction.id !== id);
         updateLocalStorage();
@@ -302,18 +244,18 @@ function removeTransaction(id) {
 // Update balance, income and expense
 function updateValues(filteredTransactions = transactions) {
     const amounts = filteredTransactions.map(transaction => 
-        transaction.type === 'income' ? Number(transaction.amount) || 0 : -(Number(transaction.amount) || 0)
+        transaction.type === 'income' ? transaction.amount : -transaction.amount
     );
 
-    const total = amounts.reduce((acc, item) => acc + item, 0);
+    const total = amounts.reduce((acc, item) => (acc += item), 0);
 
     const income = filteredTransactions
         .filter(item => item.type === 'income')
-        .reduce((acc, item) => acc + (Number(item.amount) || 0), 0);
+        .reduce((acc, item) => (acc += item.amount), 0);
 
     const expense = filteredTransactions
         .filter(item => item.type === 'expense')
-        .reduce((acc, item) => acc + (Number(item.amount) || 0), 0);
+        .reduce((acc, item) => (acc += item.amount), 0);
 
     if (balance) balance.innerText = formatCurrency(total);
     if (totalIncome) totalIncome.innerText = formatCurrency(income);
@@ -394,33 +336,60 @@ function filterTransactions() {
 // Update Chart safely (fallback if Chart.js fails)
 function updateChart() {
     const chartCanvas = document.getElementById('expense-chart');
-    const chartContainer = chartCanvas ? chartCanvas.parentElement : document.querySelector('.chart-container');
-    if (!chartContainer) return;
+    if (!chartCanvas) return;
 
+    const incomeCategories = {};
+    const expenseCategories = {};
+    
     let totalInc = 0;
     let totalExp = 0;
+
     transactions.forEach(t => {
-        if (t.type === 'income') totalInc += Number(t.amount) || 0;
-        else totalExp += Number(t.amount) || 0;
+        if (t.type === 'income') {
+            incomeCategories[t.category] = (incomeCategories[t.category] || 0) + t.amount;
+            totalInc += t.amount;
+        } else {
+            expenseCategories[t.category] = (expenseCategories[t.category] || 0) + t.amount;
+            totalExp += t.amount;
+        }
     });
 
-    // Simple visual: two horizontal bars showing proportion
-    const total = totalInc + totalExp || 1;
-    const incPct = Math.round((totalInc / total) * 100);
-    const expPct = Math.round((totalExp / total) * 100);
+    try {
+        if (typeof Chart === 'undefined') {
+            console.warn('Chart.js not loaded. Skipping chart generation.');
+            chartCanvas.parentNode.innerHTML = `<p style="text-align:center; padding: 20px;">Chart.js is required to display the chart.</p>`;
+            return;
+        }
 
-    chartContainer.innerHTML = `
-        <div class="simple-chart">
-            <div class="bar-row">
-                <div class="bar-label">Income ${formatCurrency(totalInc)}</div>
-                <div class="bar-wrap"><div class="bar inc" style="width: ${incPct}%"></div></div>
-            </div>
-            <div class="bar-row">
-                <div class="bar-label">Expense ${formatCurrency(totalExp)}</div>
-                <div class="bar-wrap"><div class="bar exp" style="width: ${expPct}%"></div></div>
-            </div>
-        </div>
-    `;
+        const ctx = chartCanvas.getContext('2d');
+        
+        if (expenseChart) {
+            expenseChart.destroy();
+        }
+
+        expenseChart = new Chart(ctx, {
+            type: 'doughnut',
+            data: {
+                labels: ['Income', 'Expense'],
+                datasets: [{
+                    data: [totalInc, totalExp],
+                    backgroundColor: ['#2ecc71', '#e74c3c'],
+                    borderWidth: 1
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        position: 'bottom'
+                    }
+                }
+            }
+        });
+    } catch (err) {
+        console.error('Error updating chart:', err);
+    }
 }
 
 // Update Local Storage
@@ -606,82 +575,6 @@ function generateInsights() {
 
     insightsHTML += '</ul>';
     aiInsightsContainer.innerHTML = insightsHTML;
-    generateAISuggestions();
-}
-
-// AI suggestion generator: produce 2-3 simple suggestions based on spending
-function generateAISuggestions() {
-    const suggestionsEl = document.getElementById('ai-suggestions');
-    if (!suggestionsEl) return;
-
-    // Compute totals by category and month
-    const totals = {};
-    let totalExpense = 0;
-    let totalIncome = 0;
-    transactions.forEach(t => {
-        if (t.type === 'expense') {
-            const amt = Number(t.amount) || 0;
-            totals[t.category] = (totals[t.category] || 0) + amt;
-            totalExpense += amt;
-        } else {
-            totalIncome += Number(t.amount) || 0;
-        }
-    });
-
-    // Sort categories by expense
-    const sortedCats = Object.entries(totals).sort((a,b) => b[1] - a[1]);
-
-    const suggestions = [];
-
-    // Suggest reducing highest category if it takes a big share
-    if (sortedCats.length > 0) {
-        const [topCat, topAmt] = sortedCats[0];
-        const pct = totalExpense > 0 ? (topAmt / totalExpense) * 100 : 0;
-        if (pct > 40) {
-            suggestions.push({
-                title: `Reduce spending on ${topCat}`,
-                text: `You spent ${formatCurrency(topAmt)} on ${topCat}, which is ${pct.toFixed(0)}% of your expenses. Consider cutting discretionary expenses in this category.`
-            });
-        } else {
-            suggestions.push({
-                title: `Monitor ${topCat}`,
-                text: `Your top category is ${topCat} with ${formatCurrency(topAmt)} spent. Keep an eye on recurring purchases.`
-            });
-        }
-    }
-
-    // Suggest setting or adjusting budget
-    if (monthlyBudget > 0) {
-        const usedPct = totalExpense > 0 ? (totalExpense / monthlyBudget) * 100 : 0;
-        if (usedPct > 90) {
-            suggestions.push({
-                title: 'You are near your budget limit',
-                text: `You've used ${usedPct.toFixed(0)}% of your monthly budget (${formatCurrency(totalExpense)} of ${formatCurrency(monthlyBudget)}). Consider trimming expenses.`
-            });
-        } else if (usedPct < 50 && totalIncome > 0) {
-            suggestions.push({
-                title: 'Opportunity to save more',
-                text: `You're using ${usedPct.toFixed(0)}% of your budget. Consider increasing savings or investing a portion of surplus income (${formatCurrency(totalIncome - totalExpense)}).`
-            });
-        }
-    } else {
-        suggestions.push({
-            title: 'Set a monthly budget',
-            text: 'You have not set a monthly budget. Setting one helps track spending and stay on target.'
-        });
-    }
-
-    // Ensure at most 3 suggestions
-    const final = suggestions.slice(0,3);
-
-    // Render suggestions
-    suggestionsEl.innerHTML = '';
-    final.forEach(s => {
-        const div = document.createElement('div');
-        div.className = 'suggestion-item';
-        div.innerHTML = `<strong>${s.title}</strong><div>${s.text}</div>`;
-        suggestionsEl.appendChild(div);
-    });
 }
 
 // Init app
@@ -699,7 +592,6 @@ function init() {
     updateValues(transactions);
     updateChart();
     generateInsights();
-    populateCategoryFilter();
     
     if(dateInput && (!editId || !editId.value)) {
         dateInput.value = new Date().toISOString().split('T')[0];
@@ -707,9 +599,8 @@ function init() {
 }
 
 // Call init and setup listeners once DOM is ready
-// Call init and setup listeners once DOM is ready
 document.addEventListener('DOMContentLoaded', () => {
-    // Cache DOM elements safely
+    // Cache elements
     balance = document.getElementById('balance');
     totalIncome = document.getElementById('total-income');
     totalExpense = document.getElementById('total-expense');
